@@ -1,0 +1,31 @@
+# Required Python packages:
+#
+# ansible
+# openstackclient
+# openstacksdk
+
+- import_playbook: common.yaml
+
+- hosts: all
+  gather_facts: no
+  ignore_errors: true
+
+  tasks:
+  #- name: 'List security groups'
+  #  command:
+  #    cmd: "openstack security group list --tags {{ cluster_id_tag }} -f value -c ID"
+  #  register: security_groups
+
+  #- name: 'Remove the cluster security groups'
+  #  shell: openstack security group delete {{ item }}
+  #  with_items:
+  #    - "{{ os_sg_master }}"
+  #    - "{{ os_sg_worker }}"
+
+  - name: 'Remove the cluster security group "os_sg_master"'
+    command:
+      cmd: "openstack security group delete {{ os_sg_master }}"
+
+  - name: 'Remove the cluster security group "os_sg_worker"'
+    command:
+      cmd: "openstack security group delete {{ os_sg_worker }}"

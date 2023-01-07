@@ -1,0 +1,126 @@
+# Required Python packages:
+#
+# ansible
+# openstackclient
+# openstacksdk
+# netaddr
+
+- import_playbook: common.yaml
+
+- hosts: all
+  gather_facts: no
+
+  tasks:
+  - name: 'Create the primary cluster network'
+    opentelekomcloud.cloud.vpc:
+      name: "{{ os_network }}"
+      cidr: "{{ os_subnet_range }}"
+      state: present
+      wait: true
+      timeout: 180
+    register: vpc
+
+  - name: 'Set tags on the  primary cluster network'
+    opentelekomcloud.cloud.tag:
+      network: "{{ vpc.vpc.id }}"
+      state: present
+      tags:
+        - "{{ primary_cluster_network_tag }}"
+        - "{{ cluster_id_tag }} {{ os_network }}"
+      mode: set
+
+  - name: 'Create the primary cluster subnet'
+    opentelekomcloud.cloud.subnet:
+      name: "{{ os_subnet }}"
+      vpc_id: "{{ vpc.vpc.id }}"
+      cidr: "{{ os_subnet_range }}"
+      gateway_ip: "10.0.0.1"
+      #allocation_pool_start: "{{ os_subnet_range | next_nth_usable(10) }}"
+      #allocation_pool_end: "{{ os_subnet_range | ipaddr('last_usable') }}"
+      dns_list: "{{ os_external_dns }}"
+      wait: true
+      timeout: 180
+
+  - name: 'Set tags on the  primary cluster subnet'
+    opentelekomcloud.cloud.tag:
+      subnet: "{{ os_subnet }}"
+      state: present
+      tags:
+        - "{{ cluster_id_tag }} {{ os_subnet }}"
+      mode: set
+
+  ##- name: 'Create the API port'
+  ##  openstack.cloud.os_port:
+  ##    name: "{{ os_port_api }}"
+  ##    network: "{{ os_network }}"
+  ##    security_groups:
+  ##    - "{{ os_sg_master }}"
+  ##    fixed_ips:
+  ##    - subnet: "{{ os_subnet }}"
+  ##      ip_address: "{{ os_apiVIP }}"
+
+  #- name: 'Set API port tag'
+  #  command:
+  #    cmd: "openstack port set --tag {{ cluster_id_tag }} {{ os_port_api }}"
+
+  ##- name: 'Create the Ingress port'
+  ##  openstack.cloud.os_port:
+  ##    name: "{{ os_port_ingress }}"
+  ##    network: "{{ os_network }}"
+  ##    security_groups:
+  ##    - "{{ os_sg_worker }}"
+  ##    fixed_ips:
+  ##    - subnet: "{{ os_subnet }}"
+  ##      ip_address: "{{ os_ingressVIP }}"
+
+  #- name: 'Set the Ingress port tag'
+  #  command:
+  #    cmd: "openstack port set --tag {{ cluster_id_tag }} {{ os_port_ingress }}"
+
+  # Create floating ip's
+  - name: 'OpenShift API floating IP address'
+    opentelekomcloud.cloud.floating_ip:
+      reuse: yes
+      network: "{{ os_network }}"
+      wait: true
+      timeout: 180
+    register: os_api_fip
+
+  # Create floating ip's
+  - name: 'OpenShift Ingress floating IP address'
+    opentelekomcloud.cloud.floating_ip:
+      reuse: yes
+      network: "{{ os_network }}"
+      wait: true
+      timeout: 180
+    register: os_ingress_fip
+
+  # Create floating ip's
+  - name: 'OpenShift bootstrap logging IP address'
+    opentelekomcloud.cloud.floating_ip:
+      reuse: yes
+      network: "{{ os_network }}"
+      wait: true
+      timeout: 180
+    register: os_bootstrap_fip
+
+  - name: copy content
+    local_action: copy content="{{ vars[item] }}" dest="floating_ip-{{ item }}-{{ ansible_date_time.date }}-{{ ansible_hostname }}.log"
+    with_items:
+      - os_api_fip
+      - os_ingress_fip
+      - os_bootstrap_fip
+
+  # NOTE: openstack ansible module doesn't allow attaching Floating IPs to
+  # ports, let's use the CLI instead
+  - name: 'Attach the API floating IP to API port'
+    command:
+      cmd: "openstack floating ip set --port {{ os_port_api }} {{ os_api_fip }}"
+    when: os_api_fip is defined and os_api_fip|length>0
+
+  # NOTE: openstack ansible module doesn't allow attaching Floating IPs to
+  # ports, let's use the CLI instead
+  - name: 'Attach the Ingress floating IP to Ingress port'
+    command:
+      cmd: "openstack floating ip set --port {{ os_port_ingress }} {{ os_ingress_fip }}"
+    when: os_ingress_fip is defined and os_ingress_fip|length>0
