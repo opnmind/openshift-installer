@@ -18,6 +18,7 @@
 * [vSphere](docs/user/vsphere/README.md)
 * [vSphere (UPI)](docs/user/vsphere/install_upi.md)
 * [z/VM](docs/user/zvm/install_upi.md)
+* [OpenTelekomCloud (UPI)](docs/user/opentelekomcloud/install_upi.md) (TODO)
 
 ## Quick Start
 
