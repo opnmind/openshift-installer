@@ -3,6 +3,7 @@
 # ansible
 # openstackclient
 # openstacksdk
+# otcextension
 
 - import_playbook: common.yaml
 
